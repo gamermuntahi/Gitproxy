@@ -10,16 +10,26 @@
       "destination": "/assets/favicon.svg"
     },
     {
-      "source": "^/([A-Za-z0-9-]+)\\.([A-Za-z0-9_.-]+?)(?:@([A-Za-z0-9._-]+))?(?:/(.*))?$",
-      "destination": "/api/github?owner=$1&repo=$2&branch=$3&file=$4"
+      "source": "/:owner.:repo",
+      "destination": "/api/github?owner=:owner&repo=:repo"
+    },
+    {
+      "source": "/:owner.:repo@:branch/:file*",
+      "destination": "/api/github?owner=:owner&repo=:repo&branch=:branch&file=:file"
     }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     },
     {
