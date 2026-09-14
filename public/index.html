@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitProxy &middot; Host any GitHub repo on your Vercel domain</title>
+  <meta name="description" content="Turn any public GitHub repository into a live website on your own Vercel domain. No database, no accounts, no build step.">
+  <meta name="theme-color" content="#0b1220">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#builder">Skip to the URL builder</a>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+            <path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.07.78 2.16v3.2c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/>
+          </svg>
+        </span>
+        <span class="brand-text">GitProxy</span>
+      </a>
+
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#builder">Build a URL</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <p class="eyebrow">Vercel &middot; Python serverless &middot; Zero database</p>
+        <h1>Give any GitHub repository its own live website.</h1>
+        <p class="lede">
+          Paste a public GitHub repository and get a URL on this domain that serves it
+          like a real website &mdash; HTML, CSS, JavaScript, images, fonts, JSON and SVG
+          all load through the same origin. No builds, no accounts, no storage.
+        </p>
+
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#builder">Build a URL</a>
+          <a class="btn btn-ghost" href="#how">See how it works</a>
+        </div>
+
+        <div class="example-inline">
+          <span class="example-label">Example</span>
+          <a class="example-url" id="heroExample"
+             href="/gamermuntahi.MyWebsite/"
+             data-owner="gamermuntahi" data-repo="MyWebsite">
+            <span class="origin-placeholder">https://your-domain.vercel.app</span>/gamermuntahi.MyWebsite/
+          </a>
+          <button class="icon-btn" type="button" data-copy-target="heroExample"
+                  aria-label="Copy example URL">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="12" height="12" rx="2"></rect>
+              <path d="M5 15V5a2 2 0 0 1 2-2h10"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="builder" class="section">
+      <div class="wrap">
+        <div class="card builder-card">
+          <div class="card-head">
+            <h2>URL builder</h2>
+            <p>Enter a repository as <code>owner/repo</code>, add <code>@branch</code> for a non-default
+              branch, or paste a full GitHub URL.</p>
+          </div>
+
+          <form class="builder-form" id="builderForm" novalidate>
+            <div class="field">
+              <label for="repoInput">GitHub repository</label>
+              <input id="repoInput" name="repo" type="text" autocomplete="off"
+                     spellcheck="false" placeholder="gamermuntahi/MyWebsite"
+                     aria-describedby="repoHint">
+              <p class="hint" id="repoHint">
+                Accepts <code>owner/repo</code>, <code>owner/repo@branch</code>, or
+                <code>https://github.com/owner/repo</code>.
+              </p>
+            </div>
+
+            <div class="field">
+              <label for="branchInput">Branch <span class="optional">optional</span></label>
+              <input id="branchInput" name="branch" type="text" autocomplete="off"
+                     spellcheck="false" placeholder="main, dev, release-1.0">
+              <p class="hint">Leave blank to use the repository's default branch automatically.
+                Names containing a slash use the API form of the URL.</p>
+            </div>
+
+            <div class="builder-actions">
+              <button class="btn btn-primary" type="submit" id="generateBtn">Generate URL</button>
+              <button class="btn btn-ghost" type="button" id="openBtn">Open site</button>
+            </div>
+          </form>
+
+          <p class="builder-error" id="builderError" role="alert" hidden></p>
+
+          <div class="result" id="result" hidden>
+            <span class="result-label">Your website URL</span>
+            <div class="result-row">
+              <output class="result-url" id="resultUrl"></output>
+              <button class="btn btn-small" type="button" id="copyBtn">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="examples" id="examples">
+          <h3>Try an example</h3>
+          <div class="example-grid">
+            <a class="example-card" href="/octocat.Hello-World/">
+              <code>/octocat.Hello-World/</code>
+              <span>Repository root &rarr; <em>index.html</em></span>
+            </a>
+            <a class="example-card" href="/gamermuntahi.MyWebsite/about.html">
+              <code>/gamermuntahi.MyWebsite/about.html</code>
+              <span>A nested page</span>
+            </a>
+            <a class="example-card" href="/gamermuntahi.MyWebsite/css/style.css">
+              <code>/gamermuntahi.MyWebsite/css/style.css</code>
+              <span>A stylesheet with the right MIME type</span>
+            </a>
+            <a class="example-card" href="/gamermuntahi.MyWebsite@dev/">
+              <code>/gamermuntahi.MyWebsite@dev/</code>
+              <span>A specific branch</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="section section-alt">
+      <div class="wrap">
+        <h2 class="section-title">How GitHub file resolution works</h2>
+        <ol class="steps">
+          <li>
+            <span class="step-num">1</span>
+            <h3>Parse the request</h3>
+            <p>The server splits <code>/owner.repo/</code> into a GitHub username and repository,
+              plus an optional branch and file path.</p>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <h3>Validate strictly</h3>
+            <p>Username, repository, branch and every path segment are checked against strict
+              patterns. Only GitHub identifiers are accepted &mdash; never an arbitrary URL.</p>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <h3>Fetch raw content</h3>
+            <p>The backend requests
+              <code>raw.githubusercontent.com/<owner>/<repo>/HEAD/<path></code>.
+              The <code>HEAD</code> ref resolves the default branch automatically &mdash; no API call.</p>
+          </li>
+          <li>
+            <span class="step-num">4</span>
+            <h3>Stream it back</h3>
+            <p>The file is returned through this domain with a correct <code>Content-Type</code>
+              and cache headers, so the browser loads it exactly like any other asset.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <div class="wrap">
+        <h2 class="section-title">Built for static sites, safely</h2>
+        <div class="feature-grid">
+          <article class="feature">
+            <h3>Real assets, same origin</h3>
+            <p>Because every file is served through this domain, relative CSS, JS, image, font,
+              SVG and JSON references in <code>index.html</code> resolve back to the same host.</p>
+          </article>
+          <article class="feature">
+            <h3>Correct MIME types</h3>
+            <p>HTML, CSS, JavaScript, JSON, SVG, PNG, JPEG, WebP, ICO and WOFF/WOFF2 are all
+              returned with the right content type &mdash; never everything as plain text.</p>
+          </article>
+          <article class="feature">
+            <h3>SSRF & traversal protection</h3>
+            <p>The backend can only ever contact GitHub-owned hosts. Redirects are re-checked,
+              path traversal is rejected, and headers are sanitised.</p>
+          </article>
+          <article class="feature">
+            <h3>Vercel CDN caching</h3>
+            <p>Static files are cached at the edge with <code>Cache-Control</code> and
+              <code>s-maxage</code>, so repeat visits barely touch GitHub.</p>
+          </article>
+          <article class="feature">
+            <h3>Stateless by design</h3>
+            <p>No database, no accounts, no repository registration. The URL alone is enough
+              to know which file to serve.</p>
+          </article>
+          <article class="feature">
+            <h3>Friendly errors</h3>
+            <p>Missing repository, private repository, bad URL format and rate limits all return
+              clean status codes with a readable page.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p>GitProxy &mdash; a stateless GitHub website proxy running entirely on Vercel.</p>
+      <p class="footer-note">Only public repositories can be served. Usage is subject to GitHub's terms.</p>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/assets/script.js" defer></script>
+</body>
+</html>

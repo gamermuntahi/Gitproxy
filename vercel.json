@@ -1,0 +1,41 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/index.html",
+      "destination": "/"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/assets/favicon.svg"
+    },
+    {
+      "source": "^/([A-Za-z0-9-]+)\\.([A-Za-z0-9_.-]+?)(?:@([A-Za-z0-9._-]+))?(?:/(.*))?$",
+      "destination": "/api/github?owner=$1&repo=$2&branch=$3&file=$4"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
+        }
+      ]
+    }
+  ],
+  "functions": {
+    "api/github.py": {
+      "maxDuration": 30,
+      "memory": 512
+    }
+  }
+}

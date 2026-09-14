@@ -1,0 +1,8 @@
+# This project intentionally has NO third-party runtime dependencies.
+#
+# The Python backend (api/github.py) only uses the Python standard library
+# (http.server, urllib, re, os) so that it stays inside Vercel's serverless
+# limits and cold-starts as fast as possible.
+#
+# This file exists so that Vercel detects the project as a Python runtime.
+# Do not add packages unless they are strictly required at runtime.
