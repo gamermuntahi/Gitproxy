@@ -1,222 +1,772 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GitProxy &middot; Host any GitHub repo on your Vercel domain</title>
-  <meta name="description" content="Turn any public GitHub repository into a live website on your own Vercel domain. No database, no accounts, no build step.">
-  <meta name="theme-color" content="#0b1220">
-  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/assets/style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebProxyLive · Turn public files into live websites</title>
+<meta name="description" content="WebProxyLive turns a public GitHub repository or a public Google Drive folder into a real, shareable website URL. No database, no accounts, no build step.">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#070a11">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="WebProxyLive · Turn public files into live websites">
+<meta property="og:description" content="Static websites, served from where you already keep your files.">
+<meta property="og:site_name" content="WebProxyLive">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="WebProxyLive">
+<meta name="twitter:description" content="Static websites, served from where you already keep your files.">
+
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/style.css">
+
+<!-- Theme is resolved before first paint to avoid a flash of the wrong theme. -->
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem("wpl-theme");
+      if (saved === "light" || saved === "dark") {
+        document.documentElement.setAttribute("data-theme", saved);
+      } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    } catch (e) {}
+  })();
+</script>
 </head>
+
 <body>
-  <a class="skip-link" href="#builder">Skip to the URL builder</a>
+<a class="skip-link" href="#main">Skip to content</a>
 
-  <header class="site-header">
-    <div class="wrap header-inner">
-      <a class="brand" href="/">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-            <path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.07.78 2.16v3.2c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/>
-          </svg>
-        </span>
-        <span class="brand-text">GitProxy</span>
-      </a>
+<!-- =====================================================================
+     1. NAVBAR
+     ===================================================================== -->
+<header class="site-header" id="siteHeader">
+  <div class="wrap header-inner">
+    <a class="brand" href="#home" aria-label="WebProxyLive home">
+      <span class="brand-mark" aria-hidden="true">
+        <img id="brandLogo" src="" alt="" width="30" height="30" decoding="async">
+        <span class="brand-fallback" id="brandFallback">WL</span>
+      </span>
+      <span class="brand-text">
+        <span class="brand-name" data-brand-name>WebProxyLive</span>
+        <span class="brand-sub">static source proxy</span>
+      </span>
+    </a>
 
-      <nav class="site-nav" aria-label="Primary">
-        <a href="#how">How it works</a>
-        <a href="#features">Features</a>
-        <a href="#builder">Build a URL</a>
-      </nav>
+    <nav class="site-nav" aria-label="Primary" id="siteNav">
+      <ul>
+        <li><a href="#home" class="nav-link">Home</a></li>
+        <li><a href="#how" class="nav-link">How It Works</a></li>
+        <li><a href="#github" class="nav-link">GitHub</a></li>
+        <li><a href="#drive" class="nav-link">Google Drive</a></li>
+        <li><a href="#docs" class="nav-link">Docs</a></li>
+        <li><a href="#faq" class="nav-link">FAQ</a></li>
+      </ul>
+    </nav>
+
+    <div class="header-tools">
+      <button class="theme-toggle" type="button" id="themeToggle"
+              aria-label="Switch colour theme" aria-pressed="false"
+              data-tooltip="Toggle light / dark">
+        <span class="theme-icon theme-icon-sun" aria-hidden="true">☀️</span>
+        <span class="theme-icon theme-icon-moon" aria-hidden="true">🌙</span>
+      </button>
+      <button class="menu-toggle" type="button" id="menuToggle"
+              aria-label="Open menu" aria-expanded="false" aria-controls="siteNav">
+        <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+      </button>
     </div>
-  </header>
+  </div>
+</header>
 
-  <main>
-    <section class="hero">
-      <div class="wrap hero-inner">
-        <p class="eyebrow">Vercel &middot; Python serverless &middot; Zero database</p>
-        <h1>Give any GitHub repository its own live website.</h1>
-        <p class="lede">
-          Paste a public GitHub repository and get a URL on this domain that serves it
-          like a real website &mdash; HTML, CSS, JavaScript, images, fonts, JSON and SVG
-          all load through the same origin. No builds, no accounts, no storage.
-        </p>
+<main id="main">
 
-        <div class="hero-cta">
-          <a class="btn btn-primary" href="#builder">Build a URL</a>
-          <a class="btn btn-ghost" href="#how">See how it works</a>
+<!-- =====================================================================
+     2. HERO
+     ===================================================================== -->
+<section class="hero" id="home">
+  <div class="hero-grid-bg" aria-hidden="true"></div>
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="wrap hero-inner">
+    <p class="eyebrow"><span class="dot" aria-hidden="true"></span> Vercel serverless · no database · no accounts</p>
+
+    <h1 class="hero-title">
+      Turn public files<br>
+      into <span class="grad">live websites</span>.
+    </h1>
+
+    <p class="hero-lede">
+      Point WebProxyLive at a public GitHub repository or a public Google Drive
+      folder and get a real, shareable website URL in seconds.
+      <span class="dim">Static websites, served from where you already keep your files.</span>
+    </p>
+
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#generator">Generate a URL</a>
+      <a class="btn btn-ghost" href="#github">Read the guides</a>
+    </div>
+
+    <div class="hero-example">
+      <span class="hero-example-label">Try a live example</span>
+      <div class="copy-row">
+        <a class="mono url-chip" id="heroExample" href="/octocat.Hello-World/" target="_blank" rel="noopener">
+          /octocat.Hello-World/
+        </a>
+        <button class="icon-btn" type="button" data-copy-target="heroExample" data-tooltip="Copy URL" aria-label="Copy example URL">
+          <span aria-hidden="true">⧉</span>
+        </button>
+        <a class="icon-btn" href="/octocat.Hello-World/" target="_blank" rel="noopener" data-tooltip="Open in new tab" aria-label="Open example in a new tab">
+          <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </div>
+
+    <dl class="hero-stats">
+      <div><dt>Runtime</dt><dd>Vercel Python functions</dd></div>
+      <div><dt>Storage</dt><dd>None - the URL carries it all</dd></div>
+      <div><dt>Sources</dt><dd>GitHub & Google Drive</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- =====================================================================
+     3. URL GENERATOR
+     ===================================================================== -->
+<section class="section" id="generator">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>URL Generator</h2>
+      <p class="lede">Build a working WebProxyLive URL. Everything is validated, and the URL preview updates as you type.</p>
+    </div>
+
+    <div class="card generator-card">
+      <div class="tabs" role="tablist" aria-label="Source type">
+        <button class="tab is-active" role="tab" id="tabGithub" aria-selected="true"
+                aria-controls="panelGithub" type="button" data-tab="github">GitHub</button>
+        <button class="tab" role="tab" id="tabDrive" aria-selected="false" tabindex="-1"
+                aria-controls="panelDrive" type="button" data-tab="drive">Google Drive</button>
+      </div>
+
+      <!-- GitHub panel -->
+      <div class="tab-panel is-active" role="tabpanel" id="panelGithub" aria-labelledby="tabGithub">
+        <div class="field">
+          <label for="ghRepo">Repository</label>
+          <input id="ghRepo" name="ghRepo" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="owner/repository or a GitHub URL"
+                 aria-describedby="ghRepoHint ghRepoError">
+          <p class="hint" id="ghRepoHint">Paste <span class="mono">owner/repository</span>, a
+            <span class="mono">github.com</span> link, or just a repository name.</p>
+          <p class="field-error" id="ghRepoError" role="alert" hidden></p>
         </div>
 
-        <div class="example-inline">
-          <span class="example-label">Example</span>
-          <a class="example-url" id="heroExample"
-             href="/gamermuntahi.MyWebsite/"
-             data-owner="gamermuntahi" data-repo="MyWebsite">
-            <span class="origin-placeholder">https://your-domain.vercel.app</span>/gamermuntahi.MyWebsite/
+        <div class="field-row">
+          <div class="field">
+            <label for="ghBranch">Branch <span class="opt">optional</span></label>
+            <input id="ghBranch" name="ghBranch" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="main, gh-pages, dev …" aria-describedby="ghBranchHint ghBranchError">
+            <p class="hint" id="ghBranchHint">Leave empty to use the repository's default branch automatically.</p>
+            <p class="field-error" id="ghBranchError" role="alert" hidden></p>
+          </div>
+          <div class="field">
+            <label for="ghPath">File or folder <span class="opt">optional</span></label>
+            <input id="ghPath" name="ghPath" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="about.html or css/style.css" aria-describedby="ghPathError">
+            <p class="field-error" id="ghPathError" role="alert" hidden></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drive panel -->
+      <div class="tab-panel" role="tabpanel" id="panelDrive" aria-labelledby="tabDrive" hidden>
+        <div class="field">
+          <label for="drFolder">Public Drive folder link or ID</label>
+          <input id="drFolder" name="drFolder" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="https://drive.google.com/drive/folders/…"
+                 aria-describedby="drFolderHint drFolderError">
+          <p class="hint" id="drFolderHint">The folder must be shared with
+            <span class="mono">Anyone with the link</span>. Its ID is the long token in the URL.</p>
+          <p class="field-error" id="drFolderError" role="alert" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="drPath">File or folder <span class="opt">optional</span></label>
+          <input id="drPath" name="drPath" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="about.html or assets/style.css" aria-describedby="drPathError">
+          <p class="field-error" id="drPathError" role="alert" hidden></p>
+        </div>
+      </div>
+
+      <!-- Shared output -->
+      <div class="generator-output">
+        <label for="urlPreview" class="output-label">Generated URL</label>
+        <div class="output-row">
+          <output id="urlPreview" class="mono url-output" for="ghRepo ghBranch ghPath drFolder drPath" aria-live="polite">/&lt;username&gt;.&lt;repository&gt;/</output>
+          <span class="status-pill" id="urlStatus" data-state="idle">
+            <span class="pill-dot" aria-hidden="true"></span><span id="urlStatusText">Waiting for input</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="generator-actions">
+        <button class="btn btn-primary" type="button" id="copyUrl">Copy URL</button>
+        <a class="btn btn-secondary" id="openUrl" href="#" target="_blank" rel="noopener" aria-disabled="true">Open URL</a>
+        <button class="btn btn-ghost" type="button" id="clearUrl">Clear</button>
+        <button class="btn btn-ghost" type="button" id="exampleUrl">Load example</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     4. HOW IT WORKS
+     ===================================================================== -->
+<section class="section section-alt" id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>How It Works</h2>
+      <p class="lede">Four steps from a public folder of files to a live website.</p>
+    </div>
+
+    <ol class="steps reveal">
+      <li>
+        <span class="step-num" aria-hidden="true">01</span>
+        <h3>Point at your source</h3>
+        <p>Choose a public GitHub repository or a public Google Drive folder. Nothing is uploaded, registered or copied.</p>
+      </li>
+      <li>
+        <span class="step-num" aria-hidden="true">02</span>
+        <h3>Get a real URL</h3>
+        <p>The generator composes a WebProxyLive URL that fully describes the source. The URL <em>is</em> the configuration.</p>
+      </li>
+      <li>
+        <span class="step-num" aria-hidden="true">03</span>
+        <h3>Files are fetched safely</h3>
+        <p>A Vercel Python function validates every identifier, builds the upstream request itself and enforces an allow-list. No user-supplied URL is ever fetched.</p>
+      </li>
+      <li>
+        <span class="step-num" aria-hidden="true">04</span>
+        <h3>Served as a website</h3>
+        <p>Correct MIME types, HTTP caching and relative paths mean CSS, JavaScript, images and fonts all load normally.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- =====================================================================
+     5. GITHUB GUIDE
+     ===================================================================== -->
+<section class="section" id="github">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Guide</span>
+      <h2>Hosting a GitHub repository</h2>
+      <p class="lede">Any public repository with an <span class="mono">index.html</span> can be served.</p>
+    </div>
+
+    <div class="guide-grid">
+      <ol class="guide-steps">
+        <li>
+          <span class="guide-num" aria-hidden="true">1</span>
+          <div>
+            <h3>Make sure the repository is public</h3>
+            <p>Open the repository on GitHub and check the visibility label under its name. Private repositories return 404.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">2</span>
+          <div>
+            <h3>Add an <span class="mono">index.html</span></h3>
+            <p>Put <span class="mono">index.html</span> where you want the site to start - usually the repository root.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">3</span>
+          <div>
+            <h3>Copy the repository name</h3>
+            <p>You need <span class="mono">owner/repository</span>, for example <span class="mono">octocat/Hello-World</span>.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">4</span>
+          <div>
+            <h3>Build the URL</h3>
+            <p>Use <span class="mono">/&lt;owner&gt;.&lt;repository&gt;/</span> - a dot between the two names, then a trailing slash.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">5</span>
+          <div>
+            <h3>Pick a branch if you need one</h3>
+            <p>Add <span class="mono">@branch</span> before the slash: <span class="mono">/owner.repo@gh-pages/</span>. Without it, the default branch is detected for you.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">6</span>
+          <div>
+            <h3>Link to deeper files</h3>
+            <p>Append the path: <span class="mono">/owner.repo/about.html</span> or <span class="mono">/owner.repo/css/style.css</span>.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">7</span>
+          <div>
+            <h3>Share the link</h3>
+            <p>Relative paths inside the repository keep working, so the live site behaves like a normal static site.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="guide-aside">
+        <h3>URL shapes</h3>
+        <pre class="code-block" aria-label="GitHub URL formats"><code>/octocat.Hello-World/              root → index.html
+/octocat.Hello-World/about.html    a specific file
+/owner.repo@gh-pages/              a named branch
+/owner.repo/css/style.css          nested assets
+/owner.repo/docs/                  folder → index.html</code></pre>
+
+        <div class="example-cards">
+          <a class="example-card" href="/octocat.Hello-World/" target="_blank" rel="noopener">
+            <span class="mono">/octocat.Hello-World/</span>
+            <span class="example-card-note">Root page</span>
           </a>
-          <button class="icon-btn" type="button" data-copy-target="heroExample"
-                  aria-label="Copy example URL">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="9" y="9" width="12" height="12" rx="2"></rect>
-              <path d="M5 15V5a2 2 0 0 1 2-2h10"></path>
-            </svg>
-          </button>
+          <a class="example-card" href="/gamermuntahi.MyWebsite/about.html" target="_blank" rel="noopener">
+            <span class="mono">/gamermuntahi.MyWebsite/about.html</span>
+            <span class="example-card-note">Nested page</span>
+          </a>
+          <a class="example-card" href="/gamermuntahi.MyWebsite/css/style.css" target="_blank" rel="noopener">
+            <span class="mono">/gamermuntahi.MyWebsite/css/style.css</span>
+            <span class="example-card-note">Stylesheet</span>
+          </a>
         </div>
       </div>
-    </section>
+    </div>
+  </div>
+</section>
 
-    <section id="builder" class="section">
-      <div class="wrap">
-        <div class="card builder-card">
-          <div class="card-head">
-            <h2>URL builder</h2>
-            <p>Enter a repository as <code>owner/repo</code>, add <code>@branch</code> for a non-default
-              branch, or paste a full GitHub URL.</p>
+<!-- =====================================================================
+     6. GOOGLE DRIVE GUIDE
+     ===================================================================== -->
+<section class="section section-alt" id="drive">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Guide</span>
+      <h2>Hosting a Google Drive folder</h2>
+      <p class="lede">Any folder shared with <span class="mono">Anyone with the link</span> can be served - no API key required.</p>
+    </div>
+
+    <div class="notice notice-warning" role="note">
+      <strong>Sharing is the whole security model.</strong>
+      Anything in a public folder is readable by anyone who has the URL.
+      Never put private documents in a folder you host.
+    </div>
+
+    <div class="guide-grid">
+      <ol class="guide-steps">
+        <li>
+          <span class="guide-num" aria-hidden="true">1</span>
+          <div>
+            <h3>Create or open a folder</h3>
+            <p>In Google Drive, make a folder for the site. Use plain file names with normal extensions.</p>
           </div>
-
-          <form class="builder-form" id="builderForm" novalidate>
-            <div class="field">
-              <label for="repoInput">GitHub repository</label>
-              <input id="repoInput" name="repo" type="text" autocomplete="off"
-                     spellcheck="false" placeholder="gamermuntahi/MyWebsite"
-                     aria-describedby="repoHint">
-              <p class="hint" id="repoHint">
-                Accepts <code>owner/repo</code>, <code>owner/repo@branch</code>, or
-                <code>https://github.com/owner/repo</code>.
-              </p>
-            </div>
-
-            <div class="field">
-              <label for="branchInput">Branch <span class="optional">optional</span></label>
-              <input id="branchInput" name="branch" type="text" autocomplete="off"
-                     spellcheck="false" placeholder="main, dev, release-1.0">
-              <p class="hint">Leave blank to use the repository's default branch automatically.
-                Names containing a slash use the API form of the URL.</p>
-            </div>
-
-            <div class="builder-actions">
-              <button class="btn btn-primary" type="submit" id="generateBtn">Generate URL</button>
-              <button class="btn btn-ghost" type="button" id="openBtn">Open site</button>
-            </div>
-          </form>
-
-          <p class="builder-error" id="builderError" role="alert" hidden></p>
-
-          <div class="result" id="result" hidden>
-            <span class="result-label">Your website URL</span>
-            <div class="result-row">
-              <output class="result-url" id="resultUrl"></output>
-              <button class="btn btn-small" type="button" id="copyBtn">Copy</button>
-            </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">2</span>
+          <div>
+            <h3>Add <span class="mono">index.html</span></h3>
+            <p>Upload your files and place <span class="mono">index.html</span> directly in the folder root.</p>
           </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">3</span>
+          <div>
+            <h3>Share it publicly</h3>
+            <p>Right-click the folder → <strong>Share</strong> → General access → <span class="mono">Anyone with the link</span>. Set it to Viewer.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">4</span>
+          <div>
+            <h3>Copy the folder link</h3>
+            <p>It looks like <span class="mono">https://drive.google.com/drive/folders/FOLDER_ID</span>.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">5</span>
+          <div>
+            <h3>Build the URL</h3>
+            <p>Use <span class="mono">/drive/FOLDER_ID/</span>. The generator accepts the whole link and extracts the ID for you.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">6</span>
+          <div>
+            <h3>Use relative paths</h3>
+            <p>Link CSS and images relatively: <span class="mono">&lt;link href="style.css"&gt;</span>. Nested folders resolve inside the selected folder only.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">7</span>
+          <div>
+            <h3>Watch the size</h3>
+            <p>Individual files above 25 MB may trigger a Drive download warning page instead of streaming. Keep site assets small.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="guide-aside">
+        <h3>URL shapes</h3>
+        <pre class="code-block" aria-label="Google Drive URL formats"><code>/drive/FOLDER_ID/                 root → index.html
+/drive/FOLDER_ID/about.html       a specific file
+/drive/FOLDER_ID/css/style.css    nested assets
+/drive/FOLDER_ID/docs/            subfolder → index.html</code></pre>
+
+        <h3>Checklist</h3>
+        <ul class="checklist">
+          <li>Folder set to <span class="mono">Anyone with the link</span></li>
+          <li><span class="mono">index.html</span> in the folder root</li>
+          <li>File names free of <span class="mono">#</span> and <span class="mono">?</span></li>
+          <li>Each asset under 25 MB</li>
+          <li>No private or sensitive files in the folder</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     7 + 8. VS CODE DEMO + LIVE PREVIEW
+     ===================================================================== -->
+<section class="section" id="demo">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Interactive</span>
+      <h2>See exactly what gets served</h2>
+      <p class="lede">A miniature editor with a real static project. Switch files, then flip to PREVIEW to see the rendered result.</p>
+    </div>
+
+    <div class="vscode" id="vscode">
+      <div class="vscode-titlebar">
+        <span class="vscode-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="vscode-title"><span class="mono" id="vscodeProject">my-site</span> — WebProxyLive preview</span>
+        <div class="vscode-viewtoggle" role="tablist" aria-label="Editor or preview">
+          <button class="vt-btn is-active" role="tab" aria-selected="true" type="button" data-view="code">CODE</button>
+          <button class="vt-btn" role="tab" aria-selected="false" type="button" data-view="preview">PREVIEW</button>
         </div>
+      </div>
 
-        <div class="examples" id="examples">
-          <h3>Try an example</h3>
-          <div class="example-grid">
-            <a class="example-card" href="/octocat.Hello-World/">
-              <code>/octocat.Hello-World/</code>
-              <span>Repository root &rarr; <em>index.html</em></span>
-            </a>
-            <a class="example-card" href="/gamermuntahi.MyWebsite/about.html">
-              <code>/gamermuntahi.MyWebsite/about.html</code>
-              <span>A nested page</span>
-            </a>
-            <a class="example-card" href="/gamermuntahi.MyWebsite/css/style.css">
-              <code>/gamermuntahi.MyWebsite/css/style.css</code>
-              <span>A stylesheet with the right MIME type</span>
-            </a>
-            <a class="example-card" href="/gamermuntahi.MyWebsite@dev/">
-              <code>/gamermuntahi.MyWebsite@dev/</code>
-              <span>A specific branch</span>
-            </a>
+      <div class="vscode-body">
+        <aside class="vscode-sidebar" aria-label="Explorer">
+          <p class="explorer-title">Explorer</p>
+          <ul class="explorer-tree" id="explorerTree"></ul>
+        </aside>
+
+        <div class="vscode-main">
+          <div class="editor-tabs" id="editorTabs" role="tablist" aria-label="Open files"></div>
+          <div class="editor-pane" id="editorPane">
+            <div class="editor-gutter" id="editorGutter" aria-hidden="true"></div>
+            <pre class="editor-code"><code id="editorCode"></code></pre>
+            <button class="editor-copy" type="button" id="copyCode" data-tooltip="Copy file">⧉ Copy</button>
+          </div>
+          <div class="preview-pane" id="previewPane" hidden>
+            <iframe id="previewFrame" title="Live preview of the demo site"
+                    sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
           </div>
         </div>
       </div>
-    </section>
 
-    <section id="how" class="section section-alt">
-      <div class="wrap">
-        <h2 class="section-title">How GitHub file resolution works</h2>
-        <ol class="steps">
-          <li>
-            <span class="step-num">1</span>
-            <h3>Parse the request</h3>
-            <p>The server splits <code>/owner.repo/</code> into a GitHub username and repository,
-              plus an optional branch and file path.</p>
-          </li>
-          <li>
-            <span class="step-num">2</span>
-            <h3>Validate strictly</h3>
-            <p>Username, repository, branch and every path segment are checked against strict
-              patterns. Only GitHub identifiers are accepted &mdash; never an arbitrary URL.</p>
-          </li>
-          <li>
-            <span class="step-num">3</span>
-            <h3>Fetch raw content</h3>
-            <p>The backend requests
-              <code>raw.githubusercontent.com/<owner>/<repo>/HEAD/<path></code>.
-              The <code>HEAD</code> ref resolves the default branch automatically &mdash; no API call.</p>
-          </li>
-          <li>
-            <span class="step-num">4</span>
-            <h3>Stream it back</h3>
-            <p>The file is returned through this domain with a correct <code>Content-Type</code>
-              and cache headers, so the browser loads it exactly like any other asset.</p>
-          </li>
+      <div class="vscode-statusbar">
+        <span class="sb-item sb-branch">main</span>
+        <span class="sb-item" id="sbFile">index.html</span>
+        <span class="sb-item" id="sbLang">HTML</span>
+        <span class="sb-spacer"></span>
+        <span class="sb-item sb-ok">● Static · no build step</span>
+      </div>
+    </div>
+
+    <p class="demo-note">
+      The preview runs in a sandboxed frame. Demo files are rendered as text and never
+      executed as part of this page.
+    </p>
+  </div>
+</section>
+
+<!-- =====================================================================
+     9. SUPPORTED CONTENT
+     ===================================================================== -->
+<section class="section section-alt" id="supported">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>What can I host?</h2>
+      <p class="lede">WebProxyLive serves static files. There is no server-side runtime, so anything that needs to execute on a server cannot run here.</p>
+    </div>
+
+    <div class="compat-grid">
+      <div class="compat-col compat-yes">
+        <h3><span aria-hidden="true">✓</span> Supported</h3>
+        <ul id="compatYes"></ul>
+      </div>
+      <div class="compat-col compat-no">
+        <h3><span aria-hidden="true">✕</span> Not supported</h3>
+        <ul id="compatNo"></ul>
+      </div>
+    </div>
+    <p class="compat-note">Icons are paired with text so the distinction never depends on colour alone.</p>
+  </div>
+</section>
+
+<!-- =====================================================================
+     10. ARCHITECTURE
+     ===================================================================== -->
+<section class="section" id="architecture">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Architecture</span>
+      <h2>A proxy, not a host</h2>
+      <p class="lede">Requests are resolved on demand. Nothing is stored.</p>
+    </div>
+
+    <div class="arch-grid">
+      <pre class="arch-diagram" aria-label="Request flow diagram"><code>  Browser
+     │  GET /owner.repo/about.html
+     ▼
+┌───────────────────────────┐
+│        WebProxyLive       │  Vercel Python function
+│  ───────────────────────  │
+│  1. parse the URL         │
+│  2. validate identifiers  │
+│  3. build the upstream    │
+│     request itself        │
+│  4. enforce host allow-   │
+│     list on every hop     │
+└─────────────┬─────────────┘
+              │  source router
+     ┌────────┴────────┐
+     ▼                 ▼
+┌──────────┐     ┌──────────────┐
+│  GitHub  │     │ Google Drive │
+│ raw host │     │ public files │
+└────┬─────┘     └──────┬───────┘
+     └────────┬─────────┘
+              ▼
+        Static content
+       (HTML · CSS · JS ·
+        images · fonts)
+              │
+              ▼
+           Browser</code></pre>
+
+      <div class="arch-notes">
+        <article class="arch-note">
+          <h3>The URL is the configuration</h3>
+          <p>There is no database and no registration. Every request carries the source, the branch or folder and the path. Delete the URL and the site is simply no longer referenced.</p>
+        </article>
+        <article class="arch-note">
+          <h3>Two sources, one engine</h3>
+          <p>GitHub and Google Drive share the same validation, MIME, caching and error machinery, so behaviour stays consistent no matter where the files live.</p>
+        </article>
+        <article class="arch-note">
+          <h3>Stateless by design</h3>
+          <p>Each invocation resolves one request and returns one response. Only short-lived, in-memory folder listings are cached, and only for a warm instance.</p>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     11. SECURITY
+     ===================================================================== -->
+<section class="section section-alt" id="security">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Security</span>
+      <h2>How requests are kept safe</h2>
+      <p class="lede">WebProxyLive is a narrow, single-purpose proxy. Each protection below is enforced in code on every request.</p>
+    </div>
+
+    <div class="security-grid">
+      <article class="security-card">
+        <h3>Strict input validation</h3>
+        <p>Owners, repositories, branches, folder IDs and every path segment are matched against strict patterns before use. Control characters and null bytes are rejected.</p>
+      </article>
+      <article class="security-card">
+        <h3>Path traversal is impossible</h3>
+        <p><span class="mono">..</span>, backslashes and oversized or overly deep paths are refused. Drive segments are resolved one at a time <em>inside</em> the selected folder, so escape cannot occur.</p>
+      </article>
+      <article class="security-card">
+        <h3>No arbitrary URL fetching</h3>
+        <p>The destination is always built from validated identifiers. A visitor can never supply a host, a scheme or a full URL for the server to fetch.</p>
+      </article>
+      <article class="security-card">
+        <h3>Host allow-list + redirect checks</h3>
+        <p>Requests may only reach GitHub and Google owned hosts. Every redirect hop is re-validated against the same allow-list before it is followed.</p>
+      </article>
+      <article class="security-card">
+        <h3>HTTPS only</h3>
+        <p>Upstream traffic is HTTPS. Plain <span class="mono">http://</span> destinations are never constructed or followed.</p>
+      </article>
+      <article class="security-card">
+        <h3>Header sanitisation</h3>
+        <p>Only a small, known set of upstream headers is passed through. Upstream cookies and hop-by-hop headers are dropped, and safe security headers are added.</p>
+      </article>
+      <article class="security-card">
+        <h3>File size limits</h3>
+        <p>Responses above 25 MB are refused with a clear explanation, keeping the proxy fast and preventing accidental bandwidth abuse.</p>
+      </article>
+      <article class="security-card">
+        <h3>Correct MIME handling</h3>
+        <p>Types are derived from the file extension. Extension-less files are served as plain text so source files can never be rendered as markup.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     12. TROUBLESHOOTING
+     ===================================================================== -->
+<section class="section" id="troubleshooting">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Troubleshooting</span>
+      <h2>Fix the common problems</h2>
+      <p class="lede">Filter by symptom or error code to jump straight to the fix.</p>
+    </div>
+
+    <div class="ts-toolbar">
+      <label class="visually-hidden" for="tsSearch">Filter troubleshooting entries</label>
+      <input id="tsSearch" type="search" placeholder="Filter: 404, css, permission, rate limit…" autocomplete="off">
+      <span class="ts-count" id="tsCount" aria-live="polite"></span>
+    </div>
+
+    <div class="ts-grid" id="tsGrid"></div>
+    <p class="ts-empty" id="tsEmpty" hidden>No entries match that filter.</p>
+  </div>
+</section>
+
+<!-- =====================================================================
+     13. FAQ
+     ===================================================================== -->
+<section class="section section-alt" id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Frequently asked questions</h2>
+      <p class="lede">Click a question to expand it. Everything here reflects what the service actually does.</p>
+    </div>
+
+    <div class="faq-list" id="faqList"></div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     DOCS anchor
+     ===================================================================== -->
+<section class="section" id="docs">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="kicker">Docs</span>
+      <h2>Reference</h2>
+      <p class="lede">The essentials in one place. Expand a section for the detail.</p>
+    </div>
+
+    <div class="docs-tabs" role="tablist" aria-label="Documentation topics">
+      <button class="doc-tab is-active" role="tab" aria-selected="true" type="button" data-doc="urls">URL formats</button>
+      <button class="doc-tab" role="tab" aria-selected="false" tabindex="-1" type="button" data-doc="deploy">Deployment</button>
+      <button class="doc-tab" role="tab" aria-selected="false" tabindex="-1" type="button" data-doc="local">Local development</button>
+      <button class="doc-tab" role="tab" aria-selected="false" tabindex="-1" type="button" data-doc="limits">Limits</button>
+    </div>
+
+    <div class="docs-panels">
+      <div class="doc-panel is-active" role="tabpanel" data-doc-panel="urls">
+        <pre class="code-block"><code>GitHub
+  /&lt;owner&gt;.&lt;repository&gt;/                  root index.html
+  /&lt;owner&gt;.&lt;repository&gt;/&lt;path&gt;             any file
+  /&lt;owner&gt;.&lt;repository&gt;@&lt;branch&gt;/&lt;path&gt;     explicit branch
+
+Google Drive
+  /drive/&lt;folder-id&gt;/                       root index.html
+  /drive/&lt;folder-id&gt;/&lt;path&gt;                  any file or subfolder</code></pre>
+      </div>
+      <div class="doc-panel" role="tabpanel" data-doc-panel="deploy" hidden>
+        <h3>Deploy to Vercel</h3>
+        <ol class="doc-list">
+          <li>Push this project to a Git repository.</li>
+          <li>Import it at <span class="mono">vercel.com/new</span>. The framework preset can stay “Other”.</li>
+          <li>No environment variables are required. Optionally set <span class="mono">GITHUB_TOKEN</span> to raise GitHub's rate limit, or <span class="mono">DRIVE_API_KEY</span> to use the Drive API listing.</li>
+          <li>Deploy. The rewrites in <span class="mono">vercel.json</span> wire the public URLs to the Python functions.</li>
         </ol>
       </div>
-    </section>
-
-    <section id="features" class="section">
-      <div class="wrap">
-        <h2 class="section-title">Built for static sites, safely</h2>
-        <div class="feature-grid">
-          <article class="feature">
-            <h3>Real assets, same origin</h3>
-            <p>Because every file is served through this domain, relative CSS, JS, image, font,
-              SVG and JSON references in <code>index.html</code> resolve back to the same host.</p>
-          </article>
-          <article class="feature">
-            <h3>Correct MIME types</h3>
-            <p>HTML, CSS, JavaScript, JSON, SVG, PNG, JPEG, WebP, ICO and WOFF/WOFF2 are all
-              returned with the right content type &mdash; never everything as plain text.</p>
-          </article>
-          <article class="feature">
-            <h3>SSRF & traversal protection</h3>
-            <p>The backend can only ever contact GitHub-owned hosts. Redirects are re-checked,
-              path traversal is rejected, and headers are sanitised.</p>
-          </article>
-          <article class="feature">
-            <h3>Vercel CDN caching</h3>
-            <p>Static files are cached at the edge with <code>Cache-Control</code> and
-              <code>s-maxage</code>, so repeat visits barely touch GitHub.</p>
-          </article>
-          <article class="feature">
-            <h3>Stateless by design</h3>
-            <p>No database, no accounts, no repository registration. The URL alone is enough
-              to know which file to serve.</p>
-          </article>
-          <article class="feature">
-            <h3>Friendly errors</h3>
-            <p>Missing repository, private repository, bad URL format and rate limits all return
-              clean status codes with a readable page.</p>
-          </article>
-        </div>
+      <div class="doc-panel" role="tabpanel" data-doc-panel="local" hidden>
+        <h3>Run it locally</h3>
+        <pre class="code-block"><code>pip install flask
+python app.py                 # http://127.0.0.1:8000
+python app.py --port 8080     # different port
+python app.py --no-open       # no browser
+python app.py --debug         # auto-reload</code></pre>
+        <p class="doc-note">The launcher reuses the exact production backends in <span class="mono">api/</span>, so local behaviour matches deployment.</p>
       </div>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="wrap footer-inner">
-      <p>GitProxy &mdash; a stateless GitHub website proxy running entirely on Vercel.</p>
-      <p class="footer-note">Only public repositories can be served. Usage is subject to GitHub's terms.</p>
+      <div class="doc-panel" role="tabpanel" data-doc-panel="limits" hidden>
+        <h3>Current limits</h3>
+        <ul class="doc-list">
+          <li>Maximum file size: <span class="mono">25 MiB</span>.</li>
+          <li>Maximum path segments: <span class="mono">40</span>; maximum segment length: <span class="mono">255</span>.</li>
+          <li>Upstream timeout: <span class="mono">15s</span>.</li>
+          <li>Sources must be public. Private repositories and folders are not supported.</li>
+          <li>No server-side execution of any kind.</li>
+        </ul>
+      </div>
     </div>
-  </footer>
+  </div>
+</section>
 
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<!-- =====================================================================
+     14. FINAL CTA
+     ===================================================================== -->
+<section class="section cta-section">
+  <div class="wrap">
+    <div class="cta-card">
+      <h2>Your files are already hosted. Now they’re a website.</h2>
+      <p>Build a URL in a few seconds and share it. No account, no database, nothing to configure.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#generator">Open the generator</a>
+        <a class="btn btn-ghost" href="#docs">Read the docs</a>
+      </div>
+    </div>
+  </div>
+</section>
 
-  <script src="/assets/script.js" defer></script>
+</main>
+
+<!-- =====================================================================
+     15. FOOTER
+     ===================================================================== -->
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <span class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="brand-fallback" data-brand-fallback>WL</span>
+        </span>
+        <span class="brand-name" data-brand-name>WebProxyLive</span>
+      </span>
+      <p class="footer-tagline" data-brand-tagline>Static websites, served from where you already keep your files.</p>
+    </div>
+
+    <nav class="footer-links" aria-label="Footer" id="footerLinks"></nav>
+
+    <div class="footer-status" id="footerStatus">
+      <p class="footer-status-title">Technical status</p>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <p>WebProxyLive is an independent proxy service. It is not affiliated with GitHub or Google.</p>
+  </div>
+</footer>
+
+<button class="to-top" type="button" id="toTop" aria-label="Back to top" data-tooltip="Back to top">↑</button>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="/assets/config.js" defer></script>
+<script src="/assets/demo.js" defer></script>
+<script src="/assets/app.js" defer></script>
 </body>
 </html>
