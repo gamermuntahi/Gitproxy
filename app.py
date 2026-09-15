@@ -13,11 +13,15 @@ project:
 * ``/`` and everything under ``/assets/`` are served from the ``public/`` folder.
 * ``/<owner>.<repo>/`` and ``/<owner>.<repo>/<path>`` are proxied to GitHub.
 * ``/drive/<folder-id>/`` and ``/drive/<folder-id>/<path>`` are proxied to a
-  public Google Drive folder.
+  public Google Drive folder using Google's public endpoints, with **no API
+  key, OAuth token, database or extra backend service**.
+* ``/api/status`` (also reachable as ``/status``) reports what each backend can
+  do and confirms that no credentials are required. It exposes no secrets.
 
 Both proxies reuse the *exact* validation, fetching, MIME and caching logic that
-Vercel runs in production (``api/github.py`` and ``api/drive.py`` over the shared
-``api/_shared.py`` engine), so what you see locally is what you get deployed.
+Vercel runs in production (``api/github.py``, ``api/drive.py`` and
+``api/status.py`` over the shared ``api/_shared.py`` engine), so what you see
+locally is what you get deployed.
 
 This file is a local development convenience only. The production deployment
 still runs the serverless functions in ``api/``.
@@ -40,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import os
 import re
 import sys
@@ -57,6 +62,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 API_DIR = os.path.join(ROOT, "api")
 GITHUB_FILE = os.path.join(API_DIR, "github.py")
 DRIVE_FILE = os.path.join(API_DIR, "drive.py")
+STATUS_FILE = os.path.join(API_DIR, "status.py")
 PUBLIC_DIR = os.path.join(ROOT, "public")
 
 DEFAULT_PORT = 8000
@@ -98,6 +104,7 @@ import _shared  # noqa: E402  (API_DIR is prepared above)
 
 github_backend = _load_module("webproxylive_github", GITHUB_FILE)
 drive_backend = _load_module("webproxylive_drive", DRIVE_FILE)
+status_backend = _load_module("webproxylive_status", STATUS_FILE)
 
 app = Flask(__name__, static_folder=None)
 
@@ -174,11 +181,15 @@ def _proxy_github(owner, repo, branch, file_path, method="GET"):
     return _serve_outcome(outcome, method)
 
 
-def _proxy_drive(folder, file_path, method="GET"):
-    """Resolve a request against Google Drive using the production backend."""
-    # Drive's download endpoint is most reliable with GET, so always fetch with
-    # GET and simply omit the body for HEAD requests.
-    outcome = drive_backend.resolve(folder, file_path, method="GET")
+def _proxy_drive(folder, file_path, method="GET", manifest=""):
+    """Resolve a request against Google Drive using the production backend.
+
+    No API key, OAuth token, database or extra backend is involved: the backend
+    reads Google's public endpoints and reports honestly when Google refuses.
+    """
+    # Drive's public endpoints are requested with GET, so always fetch with GET
+    # and simply omit the body for HEAD requests.
+    outcome = drive_backend.resolve(folder, file_path, method="GET", manifest=manifest)
     return _serve_outcome(outcome, method)
 
 
@@ -231,7 +242,37 @@ def api_drive():
         return _options_response()
     folder = _shared._clean(request.args.get("folder", ""))
     file_path = _shared._clean(request.args.get("file", ""))
-    return _proxy_drive(folder, file_path, request.method)
+    manifest = _shared._clean(request.args.get("manifest", ""))
+    return _proxy_drive(folder, file_path, request.method, manifest)
+
+
+@app.route("/api/status", methods=METHODS)
+@app.route("/status", methods=METHODS)
+def api_status():
+    """Mirror the diagnostics endpoint declared in vercel.json.
+
+    The report never contains a credential, because the deployment never has
+    one; it states plainly that no API key, OAuth, database or extra backend is
+    required.
+    """
+    if request.method == "OPTIONS":
+        return _options_response()
+    try:
+        payload = status_backend.report()
+    except Exception:  # pragma: no cover - defensive
+        return _error(
+            500,
+            "Diagnostics unavailable",
+            "The diagnostics report could not be built.",
+            method=request.method,
+        )
+    body = b"" if request.method == "HEAD" else json.dumps(
+        payload, indent=2, sort_keys=True
+    ).encode("utf-8")
+    headers = dict(_shared.base_headers())
+    headers["Content-Type"] = "application/json; charset=utf-8"
+    headers["Cache-Control"] = "no-store"
+    return Response(body, status=200, headers=headers)
 
 
 @app.route("/<path:anything>", methods=METHODS)
@@ -248,6 +289,7 @@ def proxy(anything):  # noqa: ARG001 - the raw path is re-read below
             drive_match.group(1) or "",
             drive_match.group(2) or "",
             request.method,
+            _shared._clean(request.args.get("manifest", "")),
         )
 
     match = PROXY_RE.match(path)
@@ -330,7 +372,11 @@ def main(argv=None):
         "  Landing page : {url}\n"
         "  GitHub demo  : {url}octocat.Hello-World/\n"
         "  Drive demo   : {url}drive/<folder-id>/\n"
-        "  Backends     : api/github.py + api/drive.py (the same code Vercel runs)\n"
+        "  Diagnostics  : {url}api/status\n"
+        "  Drive mode   : no key needed - public Google endpoints only\n"
+        "                 (no API key, OAuth, database or extra backend)\n"
+        "  Backends     : api/github.py + api/drive.py + api/status.py\n"
+        "                 (the same code Vercel runs)\n"
         "  Stop         : press Ctrl+C\n".format(url=url)
     )
 

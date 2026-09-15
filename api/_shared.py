@@ -393,6 +393,28 @@ def sanitise_headers(headers):
     return clean
 
 
+def merge_headers(target, extra):
+    """Merge sanitised ``extra`` into ``target``, overriding canonically.
+
+    :func:`sanitise_headers` lower-cases names, so a plain ``dict.update`` would
+    leave a second, lower-cased ``content-type`` beside the canonical one. This
+    removes any existing entry that matches case-insensitively and keeps the
+    caller's own spelling, so an override really does override.
+    """
+    approved = sanitise_headers(extra)
+    for original in (extra or {}).keys():
+        if original is None:
+            continue
+        name = str(original).strip()
+        lowered = name.lower()
+        if lowered not in approved:
+            continue
+        for existing in [key for key in target if key.lower() == lowered]:
+            del target[existing]
+        target[name] = approved[lowered]
+    return target
+
+
 class UpstreamResult:
     """The outcome of an upstream fetch, HTTP failures included."""
 
@@ -405,12 +427,56 @@ class UpstreamResult:
         self.error = error
 
 
-def fetch_url(url, method="GET", allowed_hosts=(), allowed_suffixes=(), token=None):
+#: The only request header *names* a caller may contribute to an upstream
+#: request. Everything here is either protocol metadata or a Google Drive
+#: resource key, and every value is still sanitised before use. Keeping this an
+#: allow-list (rather than a deny-list) means a caller can never smuggle a
+#: header into the upstream request, and no request header ever originates in
+#: user input.
+ALLOWED_REQUEST_HEADERS = frozenset(
+    {
+        "x-goog-drive-resource-keys",
+        "range",
+        "if-none-match",
+        "if-modified-since",
+        "accept",
+    }
+)
+
+
+def _safe_request_headers(extra_headers):
+    """Filter caller supplied request headers down to the safe allow-list."""
+    clean = {}
+    for key, value in (extra_headers or {}).items():
+        if key is None or value is None:
+            continue
+        key = str(key).strip().lower()
+        if key not in ALLOWED_REQUEST_HEADERS:
+            continue
+        # Drop CR/LF (header injection) and cap the length of a single value.
+        value = "".join(ch for ch in str(value) if ch not in "\r\n")[:1024].strip()
+        if value:
+            clean[key] = value
+    return clean
+
+
+def fetch_url(
+    url,
+    method="GET",
+    allowed_hosts=(),
+    allowed_suffixes=(),
+    token=None,
+    extra_headers=None,
+):
     """Fetch a single resource, safely.
 
     ``url`` must already be constructed from validated components. The request
     never raises for HTTP level failures; the status is reported back so the
     caller can map it to a user-friendly response.
+
+    ``extra_headers`` are filtered through :data:`ALLOWED_REQUEST_HEADERS`; it
+    exists so the Drive backend can attach a resource key, not so callers can
+    relay arbitrary client headers upstream.
     """
     if not url_allowed(url, set(allowed_hosts), tuple(allowed_suffixes)):
         return UpstreamResult(400, error="Constructed URL is not allowed")
@@ -420,6 +486,7 @@ def fetch_url(url, method="GET", allowed_hosts=(), allowed_suffixes=(), token=No
         "Accept": "*/*",
         "Accept-Encoding": "identity",
     }
+    request_headers.update(_safe_request_headers(extra_headers))
     if token:
         request_headers["Authorization"] = "Bearer " + "".join(
             ch for ch in token if ch not in "\r\n"
@@ -539,7 +606,7 @@ def file_outcome(result, served_path, extra_headers=None):
     headers["Content-Type"] = content_type
     headers["Cache-Control"] = cache_control_for(content_type)
     if extra_headers:
-        headers.update(sanitise_headers(extra_headers))
+        merge_headers(headers, extra_headers)
 
     upstream_etag = result.headers.get("etag")
     upstream_last_modified = result.headers.get("last-modified")
@@ -802,7 +869,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             headers["Content-Type"] = content_type
             headers["Cache-Control"] = cache_control_for(content_type)
             if extra_headers:
-                headers.update(sanitise_headers(extra_headers))
+                merge_headers(headers, extra_headers)
 
             upstream_etag = result.headers.get("etag")
             upstream_last_modified = result.headers.get("last-modified")

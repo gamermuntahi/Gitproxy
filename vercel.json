@@ -11,12 +11,20 @@
       "destination": "/assets/favicon.svg"
     },
     {
+      "source": "/status",
+      "destination": "/api/status"
+    },
+    {
       "source": "/drive/:folder",
       "destination": "/api/drive?folder=:folder"
     },
     {
       "source": "/drive/:folder/:file*",
       "destination": "/api/drive?folder=:folder&file=:file"
+    },
+    {
+      "source": "/api/drive/:folder",
+      "destination": "/api/drive?folder=:folder"
     },
     {
       "source": "/api/drive/:folder/:file*",
@@ -72,7 +80,18 @@
     "api/drive.py": {
       "maxDuration": 30,
       "memory": 512,
-      "includeFiles": "api/_shared.py"
+      "includeFiles": [
+        "api/_shared.py",
+        "api/status.py"
+      ]
+    },
+    "api/status.py": {
+      "maxDuration": 10,
+      "memory": 256,
+      "includeFiles": [
+        "api/_shared.py",
+        "api/drive.py"
+      ]
     }
   }
 }

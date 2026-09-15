@@ -1008,7 +1008,7 @@
     },
     {
       code: "413", tone: "warn", title: "File too large",
-      body: "Files above 25 MB are not proxied. Drive can also return a download warning page for large files.",
+      body: "Files above 25 MB are not proxied, so the request is refused before any bytes are streamed.",
       fix: "Keep individual assets small, or host large files elsewhere and link to them directly."
     },
     {
@@ -1032,9 +1032,14 @@
       fix: "Match the exact file name and case, and prefer simple names without spaces."
     },
     {
-      code: "SHARE", tone: "warn", title: "Drive permission denied",
-      body: "Google asked for a sign-in, which means the folder is not shared publicly.",
-      fix: "Set the folder's General access to <span class=\"mono\">Anyone with the link</span> with Viewer rights."
+      code: "SHARE", tone: "warn", title: "Google Drive access denied",
+      body: "The folder (or a file inside it) is not shared publicly, so Google returned no public listing and no public download.",
+      fix: "Set the folder's General access to <span class=\"mono\">Anyone with the link</span> with Viewer rights, then reload."
+    },
+    {
+      code: "ENUM", tone: "warn", title: "Google Drive resource unavailable",
+      body: "Google returned no anonymous listing for this folder. Public folder enumeration has no guaranteed filesystem-style equivalent without Google's API.",
+      fix: "Share as <span class=\"mono\">Anyone with the link</span> and retry. If Google still refuses, supply the known file IDs with <span class=\"mono\">?manifest=</span> — for example <span class=\"mono\">/drive/FOLDER_ID/?manifest=index.html:FILE_ID</span>. Check <span class=\"mono\">/status</span> for capability details."
     },
     {
       code: "LOCAL", tone: "info", title: "Works locally but not here",
@@ -1118,17 +1123,23 @@
     ["Can I host a private repository?",
      "No. Private sources cannot be read anonymously, so they are not supported. Only public repositories and publicly shared folders work."],
     ["How do I host a Google Drive folder?",
-     "Share the folder with <span class=\"mono\">Anyone with the link</span>, then open <span class=\"mono\">/drive/&lt;folder-id&gt;/</span>. The generator extracts the folder ID from a full Drive link."],
+     "Create a folder, upload your site, set sharing to <span class=\"mono\">Anyone with the link</span> (Viewer), copy the folder ID, then open <span class=\"mono\">/drive/YOUR_FOLDER_ID/</span>. The generator extracts the folder ID from a full Drive link. The folder ID is never treated as a download link: the server discovers the folder through Google's public embed view and fetches each file itself."],
     ["Is a Google API key required for Drive?",
-     "No. The default key-free listing reads the public folder view. An optional <span class=\"mono\">DRIVE_API_KEY</span> can be set to use the Drive v3 API for more precise listings."],
+     "No. Drive hosting uses <strong>no API key, no OAuth, no database and no extra backend</strong>. It reads Google's public folder embed view, the public download endpoint and the public thumbnail endpoint. There is no credential in the deployment at all, so nothing secret can leak."],
     ["Why is my Drive folder returning 403?",
-     "Google asked for a sign-in, which means the folder is not shared publicly. Change its General access to <span class=\"mono\">Anyone with the link</span>."],
+     "Either the folder is not shared publicly, or Google returned no anonymous listing for it. First set General access to <span class=\"mono\">Anyone with the link</span> so anonymous reads are allowed. If Google still refuses to enumerate it, the proxy says so honestly and you can supply the known file IDs with <span class=\"mono\">?manifest=</span>."],
+    ["What is the Drive limitation with no key?",
+     "Google does not provide unrestricted, filesystem-style, credential-free enumeration of arbitrary public folders in every situation. Public folder discovery here is <em>best effort</em>: when Google refuses, the proxy returns a clear explanation rather than pretending the folder is empty. Supplying known file IDs with <span class=\"mono\">?manifest=</span> works in that case without adding a key."],
+    ["What is the ?manifest= parameter?",
+     "A zero-credential fallback that maps a path to a Drive file ID: <span class=\"mono\">/drive/FOLDER_ID/?manifest=index.html:FILE_ID</span>, several pairs separated by <span class=\"mono\">;</span>, inline JSON, or the ID of a public JSON file in Drive. Manifest values are validated as file IDs, so a URL-shaped value is rejected and never fetched."],
+    ["What happens when a Drive folder has no index.html?",
+     "Instead of a 404 you get a professional directory browser listing the folder's subfolders and files with type labels and clickable links, so a public folder is still useful even if it was never built as a website."],
     ["Can Drive be used for private files?",
      "No, and it should not be. Anything in a public folder is readable by anyone who has the URL. Never place private or sensitive documents in a hosted folder."],
     ["How deep can Drive folders go?",
      "Each path segment is resolved inside the folder that the previous segment pointed at, up to 40 segments. Because lookups only ever happen inside the selected folder, escaping it is impossible."],
     ["Are there file size limits?",
-     "Files above 25 MB are not proxied. Google Drive may also show a download warning page for very large files instead of streaming them."],
+     "Yes. Files above 25 MB are refused with an explanation, for both sources, so a single request can never consume excessive bandwidth."],
     ["Why did GitHub return a rate limit error?",
      "Anonymous GitHub requests are rate limited and the budget is shared. Wait a moment and retry, or set an optional <span class=\"mono\">GITHUB_TOKEN</span> environment variable to raise the limit."],
     ["Is WebProxyLive safe against SSRF?",
@@ -1152,7 +1163,9 @@
     ["Is there a limit on how many projects I can host?",
      "No. Nothing is registered, so there is no list to fill up. Any number of public sources can be referenced by URL."],
     ["Do I need to deploy anything myself?",
-     "Only to get your own domain. Deploy this project to Vercel and every proxy URL becomes available under your deployment's hostname. No environment variables are required."]
+     "Only to get your own domain. Deploy this project to Vercel and every proxy URL becomes available under your deployment's hostname. Neither GitHub nor Drive hosting needs any configuration — there is no required environment variable."],
+    ["How can I check what the deployment supports?",
+     "Open <span class=\"mono\">/status</span>. It reports whether the GitHub proxy is available, that Drive runs in no-key mode, and that no API key, OAuth, database or external backend is required. It never exposes a secret, because there are none."]
   ];
 
   function initFaq() {

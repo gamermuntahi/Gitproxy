@@ -351,7 +351,7 @@
     <div class="section-head">
       <span class="kicker">Guide</span>
       <h2>Hosting a Google Drive folder</h2>
-      <p class="lede">Any folder shared with <span class="mono">Anyone with the link</span> can be served - no API key required.</p>
+      <p class="lede">Point WebProxyLive at a folder shared with <span class="mono">Anyone with the link</span>. The server discovers the folder through Google's <em>public</em> endpoints and resolves each file itself - no API key, no OAuth, no database. The folder ID is never treated as a download link.</p>
     </div>
 
     <div class="notice notice-warning" role="note">
@@ -407,8 +407,15 @@
         <li>
           <span class="guide-num" aria-hidden="true">7</span>
           <div>
+            <h3>No key, no OAuth, no database</h3>
+            <p>Drive hosting needs <strong>no API key</strong>. It reads Google's public endpoints: the public folder <em>embed view</em> to discover files, then the public download endpoint to serve them. When Google refuses to expose a folder anonymously, you get a clear explanation &mdash; never a fake result. You can also supply known file IDs with <span class="mono">?manifest=</span>.</p>
+          </div>
+        </li>
+        <li>
+          <span class="guide-num" aria-hidden="true">8</span>
+          <div>
             <h3>Watch the size</h3>
-            <p>Individual files above 25 MB may trigger a Drive download warning page instead of streaming. Keep site assets small.</p>
+            <p>Files above 25 MB are refused with an explanation rather than streamed. Keep site assets small so every page and asset loads quickly.</p>
           </div>
         </li>
       </ol>
@@ -418,12 +425,19 @@
         <pre class="code-block" aria-label="Google Drive URL formats"><code>/drive/FOLDER_ID/                 root → index.html
 /drive/FOLDER_ID/about.html       a specific file
 /drive/FOLDER_ID/css/style.css    nested assets
-/drive/FOLDER_ID/docs/            subfolder → index.html</code></pre>
+/drive/FOLDER_ID/docs/            subfolder → index.html
+
+No index.html? A directory browser is shown.
+/drive/FOLDER_ID/?manifest=index.html:FILE_ID
+/drive/FOLDER_ID/css/style.css?manifest=css/style.css:FILE_ID</code></pre>
 
         <h3>Checklist</h3>
         <ul class="checklist">
-          <li>Folder set to <span class="mono">Anyone with the link</span></li>
-          <li><span class="mono">index.html</span> in the folder root</li>
+          <li>Folder set to <span class="mono">Anyone with the link</span> (Viewer)</li>
+          <li><span class="mono">index.html</span> in the folder root (optional)</li>
+          <li><strong>No API key, OAuth or database</strong> required</li>
+          <li>Known file IDs can be supplied via <span class="mono">?manifest=</span></li>
+          <li>Check capability status at <span class="mono">/status</span></li>
           <li>File names free of <span class="mono">#</span> and <span class="mono">?</span></li>
           <li>Each asset under 25 MB</li>
           <li>No private or sensitive files in the folder</li>
@@ -544,7 +558,8 @@
      ▼                 ▼
 ┌──────────┐     ┌──────────────┐
 │  GitHub  │     │ Google Drive │
-│ raw host │     │ public files │
+│ raw host │     │  API v3 list │
+│          │     │  + alt=media │
 └────┬─────┘     └──────┬───────┘
      └────────┬─────────┘
               ▼
@@ -682,16 +697,27 @@
   /&lt;owner&gt;.&lt;repository&gt;/&lt;path&gt;             any file
   /&lt;owner&gt;.&lt;repository&gt;@&lt;branch&gt;/&lt;path&gt;     explicit branch
 
-Google Drive
+Google Drive  (no API key)
   /drive/&lt;folder-id&gt;/                       root index.html
-  /drive/&lt;folder-id&gt;/&lt;path&gt;                  any file or subfolder</code></pre>
+  /drive/&lt;folder-id&gt;/&lt;path&gt;                  any file or subfolder
+
+  Layer 1  public download endpoint   file bytes
+  Layer 2  public embed folder view   child discovery
+  Layer 3  public thumbnail endpoint  image/asset fallback
+  Layer 4  branded page               honest explanation
+
+  Each segment is resolved against its real parent folder,
+  one level at a time, so a request can never leave the
+  chosen folder. If a folder has no index.html, a directory
+  browser lists its folders and files instead.</code></pre>
       </div>
       <div class="doc-panel" role="tabpanel" data-doc-panel="deploy" hidden>
         <h3>Deploy to Vercel</h3>
         <ol class="doc-list">
           <li>Push this project to a Git repository.</li>
           <li>Import it at <span class="mono">vercel.com/new</span>. The framework preset can stay “Other”.</li>
-          <li>No environment variables are required. Optionally set <span class="mono">GITHUB_TOKEN</span> to raise GitHub's rate limit, or <span class="mono">DRIVE_API_KEY</span> to use the Drive API listing.</li>
+          <li><strong>No environment variable is required.</strong> Google Drive hosting works without an API key, OAuth client, database or extra backend; private-drive support is intentionally absent.</li>
+          <li>Optionally set <span class="mono">GITHUB_TOKEN</span> to raise GitHub's rate limit. GitHub hosting works without it.</li>
           <li>Deploy. The rewrites in <span class="mono">vercel.json</span> wire the public URLs to the Python functions.</li>
         </ol>
       </div>
@@ -711,7 +737,9 @@ python app.py --debug         # auto-reload</code></pre>
           <li>Maximum path segments: <span class="mono">40</span>; maximum segment length: <span class="mono">255</span>.</li>
           <li>Upstream timeout: <span class="mono">15s</span>.</li>
           <li>Sources must be public. Private repositories and folders are not supported.</li>
+          <li>Google Drive folder enumeration is best effort: it depends on Google exposing a public listing. When Google refuses, you get an honest explanation and can use <span class="mono">?manifest=</span>.</li>
           <li>No server-side execution of any kind.</li>
+          <li>No API key, OAuth, database or external backend is used or required.</li>
         </ul>
       </div>
     </div>

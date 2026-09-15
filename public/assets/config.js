@@ -53,7 +53,8 @@ window.WPL_CONFIG = {
   status: [
     { label: "Vercel Serverless", note: "Python functions, no servers to manage" },
     { label: "GitHub Support", note: "Public repositories and raw content" },
-    { label: "Google Drive Support", note: "Public folders via the link" },
+    { label: "Google Drive Support", note: "Public folders, no API key needed" },
+    { label: "No API Key / OAuth", note: "Google's public endpoints only" },
     { label: "No Database", note: "The URL carries all the information" }
   ],
 
@@ -80,6 +81,7 @@ window.WPL_CONFIG = {
     { name: ".mp4 .webm .mp3", kind: "ok", note: "Media, as long as it is under 25 MB" },
     { name: "PHP / Node / Python", kind: "no", note: "No server-side runtime is provided" },
     { name: "Databases, APIs", kind: "no", note: "Static files only - nothing executes" },
+    { name: "Drive manifest", kind: "ok", note: "Supply known file IDs with ?manifest= - still no key" },
     { name: "Private sources", kind: "no", note: "Repositories and folders must be public" }
   ]
 };

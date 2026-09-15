@@ -13,6 +13,8 @@ env/
 _smoketest.py
 _livetest.py
 _netcheck.py
+_drivetest.py
+_apptest.py
 
 # Vercel
 .vercel/
