@@ -1,39 +1,46 @@
 #!/usr/bin/env python3
-"""One-click local launcher for the GitHub Website Proxy.
+"""One-click local launcher for the GitHub Website Proxy (Flask edition).
 
 Run it with a single command::
 
     python app.py
 
-It starts a local web server that behaves like the deployed Vercel project:
+It starts a Flask development server that behaves like the deployed Vercel
+project:
 
 * ``/`` and everything under ``/assets/`` are served from the ``public/`` folder.
 * ``/<owner>.<repo>/`` and ``/<owner>.<repo>/<path>`` are proxied to GitHub by
   reusing the exact validation, fetching, MIME and caching logic from
   ``api/github.py`` — the same code Vercel runs in production.
 
-Nothing here is used in production; this file exists purely so the project can
-be previewed offline with zero installation. It uses only the Python standard
-library, so ``python app.py`` works on a clean machine.
+This file is a local development convenience only. The production deployment
+still runs ``api/github.py`` as a Vercel serverless function.
+
+Installing Flask
+----------------
+Flask is the only third-party dependency and is used *only* by this launcher::
+
+    pip install flask
 
 Usage
 -----
-    python app.py              # serve on the first free port from 8000, open browser
-    python app.py 8080         # force a specific port
-    python app.py 8080 --no-open   # do not launch a browser automatically
+    python app.py                 # serve on port 8000 and open the browser
+    python app.py --port 8080     # force a specific port
+    python app.py --no-open       # do not launch a browser automatically
+    python app.py --debug         # enable Flask debug mode / auto-reload
 """
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import os
 import re
 import sys
 import threading
-import time
 import webbrowser
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, unquote, urlparse
+
+from flask import Flask, Response, request, send_from_directory
 
 # --------------------------------------------------------------------------- #
 # Paths
@@ -42,7 +49,6 @@ from urllib.parse import parse_qs, unquote, urlparse
 ROOT = os.path.dirname(os.path.abspath(__file__))
 API_FILE = os.path.join(ROOT, "api", "github.py")
 PUBLIC_DIR = os.path.join(ROOT, "public")
-PUBLIC_REAL = os.path.realpath(PUBLIC_DIR)
 
 DEFAULT_PORT = 8000
 HOST = "127.0.0.1"
@@ -54,7 +60,7 @@ HOST = "127.0.0.1"
 
 
 def _load_backend():
-    """Import ``api/github.py`` as a normal module without running the server."""
+    """Import ``api/github.py`` as a normal module without starting a server."""
     if not os.path.isfile(API_FILE):
         sys.stderr.write(
             "ERROR: could not find api/github.py next to app.py.\n"
@@ -72,36 +78,7 @@ def _load_backend():
 
 backend = _load_backend()
 
-
-# --------------------------------------------------------------------------- #
-# Static assets (the landing page)
-# --------------------------------------------------------------------------- #
-
-STATIC_MIME = {
-    ".html": "text/html; charset=utf-8",
-    ".htm": "text/html; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".js": "text/javascript; charset=utf-8",
-    ".mjs": "text/javascript; charset=utf-8",
-    ".json": "application/json; charset=utf-8",
-    ".webmanifest": "application/manifest+json; charset=utf-8",
-    ".svg": "image/svg+xml",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".ico": "image/x-icon",
-    ".woff": "font/woff",
-    ".woff2": "font/woff2",
-    ".txt": "text/plain; charset=utf-8",
-}
-
-#: Mirrors the aliases declared in vercel.json.
-STATIC_ALIASES = {
-    "/index.html": "index.html",
-    "/favicon.ico": "assets/favicon.svg",
-}
+app = Flask(__name__, static_folder=None)
 
 #: The same catch-all shape used by the rewrite in vercel.json.
 PROXY_RE = re.compile(
@@ -109,35 +86,17 @@ PROXY_RE = re.compile(
     r"(?:@([A-Za-z0-9._-]+))?(?:/(.*))?$"
 )
 
+#: Mirrors the aliases declared in vercel.json.
+STATIC_ALIASES = {
+    "index.html": "index.html",
+    "favicon.ico": "assets/favicon.svg",
+}
 
-def _static_file_for(path):
-    """Return a safe absolute path inside ``public/`` or ``None``."""
-    cleaned = unquote(path)
-    if cleaned in STATIC_ALIASES:
-        cleaned = "/" + STATIC_ALIASES[cleaned]
-    if cleaned == "/":
-        cleaned = "/index.html"
-
-    if ".." in cleaned.split("/"):
-        return None
-
-    relative = cleaned.lstrip("/")
-    candidate = os.path.realpath(os.path.join(PUBLIC_DIR, relative))
-
-    # Directory traversal / symlink escape guard.
-    if candidate != PUBLIC_REAL and not candidate.startswith(PUBLIC_REAL + os.sep):
-        return None
-    if not os.path.isfile(candidate):
-        return None
-    return candidate
-
-
-def _security_headers():
-    return {
-        "X-Content-Type-Options": "nosniff",
-        "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Access-Control-Allow-Origin": "*",
-    }
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Access-Control-Allow-Origin": "*",
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -146,15 +105,16 @@ def _security_headers():
 
 
 def _error(status, title, message):
-    body = backend.error_page(status, title, message).encode("utf-8")
-    headers = _security_headers()
+    """Return a Flask ``Response`` rendering the shared error page."""
+    body = backend.error_page(status, title, message)
+    headers = dict(SECURITY_HEADERS)
     headers["Content-Type"] = "text/html; charset=utf-8"
     headers["Cache-Control"] = "no-store"
-    return status, body, headers
+    return Response(body, status=status, headers=headers)
 
 
-def _proxy(owner, repo, branch, file_path, method):
-    """Resolve a request against GitHub, returning ``(status, body, headers)``."""
+def _proxy(owner, repo, branch, file_path, method="GET"):
+    """Resolve a request against GitHub, returning a Flask ``Response``."""
     if not owner or not repo:
         return _error(
             400,
@@ -211,7 +171,7 @@ def _proxy(owner, repo, branch, file_path, method):
     if result.status == 200:
         served_path = "/".join(chosen or segments) or "index.html"
         content_type = backend.content_type_for(served_path)
-        headers = _security_headers()
+        headers = dict(SECURITY_HEADERS)
         headers["Content-Type"] = content_type
         headers["Cache-Control"] = backend.cache_control_for(content_type)
 
@@ -222,7 +182,8 @@ def _proxy(owner, repo, branch, file_path, method):
         if upstream_last_modified:
             headers["Last-Modified"] = upstream_last_modified
 
-        return 200, result.body, headers
+        body = b"" if method == "HEAD" else result.body
+        return Response(body, status=200, headers=headers)
 
     if result.status == 404:
         return _error(
@@ -260,139 +221,62 @@ def _proxy(owner, repo, branch, file_path, method):
 
 
 # --------------------------------------------------------------------------- #
-# Request handler
+# Static landing page (mirrors the order of the production rewrite)
 # --------------------------------------------------------------------------- #
 
 
-class LocalDevHandler(BaseHTTPRequestHandler):
-    server_version = "GitHubWebsiteProxyLocal/1.0"
-    protocol_version = "HTTP/1.1"
+@app.route("/")
+def landing():
+    return send_from_directory(PUBLIC_DIR, "index.html")
 
-    def log_message(self, fmt, *args):
-        sys.stderr.write("  %s\n" % (fmt % args))
 
-    def handle(self):
-        """Same as the base implementation, minus the noisy disconnect trace.
+@app.route("/assets/<path:filename>")
+def assets(filename):
+    return send_from_directory(os.path.join(PUBLIC_DIR, "assets"), filename)
 
-        Browsers routinely drop idle keep-alive connections, which makes the
-        stdlib server print a full traceback. That is harmless but alarming in
-        a one-click preview, so it is swallowed here.
-        """
-        try:
-            super().handle()
-        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
-            pass
 
-    # -- verbs ------------------------------------------------------------- #
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(PUBLIC_DIR, STATIC_ALIASES["favicon.ico"])
 
-    def do_GET(self):
-        self._handle("GET")
 
-    def do_HEAD(self):
-        self._handle("HEAD")
+@app.route("/api/github")
+def api_github():
+    owner = backend._clean(request.args.get("owner", ""))
+    repo = backend._clean(request.args.get("repo", ""))
+    branch = backend._clean(request.args.get("branch", ""))
+    file_path = backend._clean(request.args.get("file", ""))
+    return _proxy(owner, repo, branch, file_path, request.method)
 
-    def do_OPTIONS(self):
-        self._flush(
-            204,
-            b"",
-            {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Max-Age": "86400",
-            },
+
+@app.route("/<path:anything>")
+def proxy(anything):  # noqa: ARG001 - the raw path is re-read below
+    """Catch-all: handles the pretty ``/<owner>.<repo>/...`` proxy form."""
+    path = request.path
+    match = PROXY_RE.match(path)
+    if match:
+        return _proxy(
+            match.group(1) or "",
+            match.group(2) or "",
+            match.group(3) or "",
+            match.group(4) or "",
+            request.method,
         )
 
-    # -- dispatch ---------------------------------------------------------- #
+    # Try a nested static file first (e.g. /assets/css/x.css), then give a hint.
+    relative = path.lstrip("/")
+    candidate = os.path.realpath(os.path.join(PUBLIC_DIR, relative))
+    public_real = os.path.realpath(PUBLIC_DIR)
+    if candidate.startswith(public_real + os.sep) and os.path.isfile(candidate):
+        return send_from_directory(PUBLIC_DIR, relative)
 
-    def _handle(self, method):
-        try:
-            parsed = urlparse(self.path)
-            path = parsed.path
-
-            # Static landing page first, so /assets/* is never proxied.
-            static = _static_file_for(path)
-            if static is not None:
-                self._send_static(static, method)
-                return
-
-            # Explicit API form: /api/github?owner=..&repo=..&branch=..&file=..
-            if path.rstrip("/") == "/api/github":
-                query = parse_qs(parsed.query, keep_blank_values=True)
-
-                def first(name):
-                    values = query.get(name)
-                    return backend._clean(values[0]) if values else ""
-
-                status, body, headers = _proxy(
-                    first("owner"),
-                    first("repo"),
-                    first("branch"),
-                    first("file"),
-                    method,
-                )
-                self._flush(status, body, headers)
-                return
-
-            # Pretty proxy form: /<owner>.<repo>[@branch][/<path>]
-            match = PROXY_RE.match(path)
-            if match:
-                owner = match.group(1) or ""
-                repo = match.group(2) or ""
-                branch = match.group(3) or ""
-                file_path = match.group(4) or ""
-                status, body, headers = _proxy(owner, repo, branch, file_path, method)
-                self._flush(status, body, headers)
-                return
-
-            # Unknown path with no extension -> hint how the service works.
-            self._flush(*_error(
-                404,
-                "Page not found",
-                "That path is neither a landing page asset nor a "
-                + backend.code_html("/<username>.<repository>/")
-                + " repository URL.",
-            ))
-
-        except Exception as exc:  # pragma: no cover - last resort
-            self._flush(*_error(
-                500,
-                "Unexpected server error",
-                backend.html.escape(str(exc)) or "Something went wrong.",
-            ))
-
-    # -- writers ----------------------------------------------------------- #
-
-    def _send_static(self, absolute_path, method):
-        try:
-            with open(absolute_path, "rb") as handle:
-                body = handle.read()
-        except OSError as exc:
-            self._flush(*_error(500, "Cannot read file", backend.html.escape(str(exc))))
-            return
-
-        ext = os.path.splitext(absolute_path)[1].lower()
-        content_type = STATIC_MIME.get(ext, "application/octet-stream")
-
-        headers = _security_headers()
-        headers["Content-Type"] = content_type
-        # Always fresh locally so edits appear immediately on refresh.
-        headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-
-        self._flush(200, body, headers, method)
-
-    def _flush(self, status, body, headers, method="GET"):
-        self.send_response(status)
-        for key, value in headers.items():
-            safe = "".join(ch for ch in str(value) if ch not in "\r\n")
-            self.send_header(key, safe)
-        self.send_header("Content-Length", str(len(body) if body else 0))
-        self.end_headers()
-        if method != "HEAD" and body:
-            try:
-                self.wfile.write(body)
-            except (BrokenPipeError, ConnectionResetError):
-                pass
+    return _error(
+        404,
+        "Page not found",
+        "That path is neither a landing page asset nor a "
+        + backend.code_html("/<username>.<repository>/")
+        + " repository URL.",
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -400,64 +284,61 @@ class LocalDevHandler(BaseHTTPRequestHandler):
 # --------------------------------------------------------------------------- #
 
 
-def _parse_args(argv):
-    port = DEFAULT_PORT
-    open_browser = True
-    for arg in argv[1:]:
-        if arg in ("--no-open", "-n"):
-            open_browser = False
-        elif arg.isdigit():
-            port = int(arg)
-        elif arg in ("-h", "--help"):
-            print(__doc__)
-            raise SystemExit(0)
-    return port, open_browser
-
-
-def _start_server(preferred_port):
-    for offset in range(0, 25):
-        candidate = preferred_port + offset
-        try:
-            return ThreadingHTTPServer((HOST, candidate), LocalDevHandler)
-        except OSError:
-            continue
-    sys.stderr.write(
-        "ERROR: no free port found between %d and %d.\n"
-        % (preferred_port, preferred_port + 24)
+def _parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="app.py",
+        description="Local preview server for the GitHub Website Proxy.",
     )
-    raise SystemExit(1)
+    parser.add_argument(
+        "port_positional",
+        nargs="?",
+        type=int,
+        default=None,
+        help="port to listen on (shorthand for --port)",
+    )
+    parser.add_argument("--port", type=int, default=None, help="port to listen on")
+    parser.add_argument(
+        "--host", default=HOST, help="interface to bind (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="do not open a web browser automatically",
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="enable Flask debug mode / auto-reload"
+    )
+    args = parser.parse_args(argv)
+    if args.port is None:
+        args.port = args.port_positional if args.port_positional else DEFAULT_PORT
+    return args
 
 
 def main(argv=None):
-    argv = argv or sys.argv
-    preferred_port, open_browser = _parse_args(argv)
-    httpd = _start_server(preferred_port)
-    port = httpd.server_address[1]
-    url = "http://%s:%d/" % (HOST, port)
+    args = _parse_args(argv)
+    url = "http://%s:%d/" % (args.host if args.host != "0.0.0.0" else "127.0.0.1", args.port)
 
-    banner = (
+    print(
         "\n"
-        "  GitHub Website Proxy - local preview\n"
-        "  ------------------------------------\n"
+        "  GitHub Website Proxy - local preview (Flask)\n"
+        "  --------------------------------------------\n"
         "  Landing page : {url}\n"
         "  Example repo : {url}octocat.Hello-World/\n"
         "  Backend      : api/github.py (the same code Vercel runs)\n"
-        "  Stop         : press Ctrl+C\n"
-    ).format(url=url)
-    print(banner)
+        "  Stop         : press Ctrl+C\n".format(url=url)
+    )
 
-    if open_browser:
-        threading.Thread(
-            target=lambda: (time.sleep(0.6), webbrowser.open(url)),
-            daemon=True,
-        ).start()
+    if not args.no_open and not args.debug:
+        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
 
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n  Stopped. Bye.\n")
-    finally:
-        httpd.server_close()
+    # use_reloader is bound to --debug so a plain run stays on a single process.
+    app.run(
+        host=args.host,
+        port=args.port,
+        debug=args.debug,
+        use_reloader=args.debug,
+        threaded=True,
+    )
 
 
 if __name__ == "__main__":

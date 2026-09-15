@@ -35,7 +35,7 @@ renders the repository root (`index.html`) of
 
 ```
 .
-├── app.py                 # One-click LOCAL launcher: `python app.py`
+├── app.py                 # One-click LOCAL Flask launcher: `python app.py`
 ├── api/
 │   └── github.py          # Python serverless backend (GitHub fetch proxy)
 ├── public/
@@ -44,7 +44,8 @@ renders the repository root (`index.html`) of
 │       ├── style.css      # Landing page styles
 │       ├── script.js      # Landing page JS (URL builder, copy, open)
 │       └── favicon.svg    # Landing page favicon
-├── requirements.txt       # No third-party dependencies (see note inside)
+├── requirements.txt       # Production: no third-party dependencies
+├── requirements-dev.txt   # Development only: Flask (for app.py)
 ├── vercel.json            # Rewrites, headers, function config
 └── README.md
 ```
@@ -52,12 +53,14 @@ renders the repository root (`index.html`) of
 ### Run it locally with one command
 
 ```bash
+pip install -r requirements-dev.txt   # Flask, for the launcher only
 python app.py
 ```
 
-This opens a preview server and launches your browser automatically. It serves
-the landing page **and** emulates the deployed proxy (it imports and reuses the
-real logic from `api/github.py`, so behaviour matches production):
+`app.py` is a **Flask** app. It opens a preview server, launches your browser
+automatically, serves the landing page **and** emulates the deployed proxy by
+importing and reusing the real logic from `api/github.py`, so behaviour matches
+production:
 
 | URL | Result |
 | --- | --- |
@@ -68,13 +71,16 @@ real logic from `api/github.py`, so behaviour matches production):
 Options:
 
 ```bash
-python app.py 8080          # use a specific port
+python app.py --port 8080   # use a specific port
+python app.py 8080          # the same thing, positionally
 python app.py --no-open     # do not auto-open the browser
+python app.py --debug       # Flask debug mode with auto-reload
 ```
 
-`app.py` uses only the Python standard library and is **not** part of the Vercel
-deployment — Vercel runs `api/github.py` directly. If the first port is busy the
-launcher automatically tries the next ones.
+`app.py` is **not** part of the Vercel deployment — Vercel installs only
+`requirements.txt` (empty) and runs `api/github.py` directly. Flask is confined
+to `requirements-dev.txt` so it never inflates the serverless function or slows
+its cold start.
 
 ### Why the landing assets live in `public/assets/`
 

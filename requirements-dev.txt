@@ -1,0 +1,10 @@
+# Development-only dependencies for running the project locally.
+#
+# These are NOT installed by Vercel. The production backend (api/github.py)
+# uses only the Python standard library, so the deployed function stays lean
+# and cold-starts quickly.
+#
+# Install with:  pip install -r requirements-dev.txt
+# Then run:      python app.py
+
+flask>=2.3,<4

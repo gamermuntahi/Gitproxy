@@ -1,8 +1,13 @@
-# This project intentionally has NO third-party runtime dependencies.
+# This file has NO third-party runtime dependencies on purpose.
 #
 # The Python backend (api/github.py) only uses the Python standard library
-# (http.server, urllib, re, os) so that it stays inside Vercel's serverless
-# limits and cold-starts as fast as possible.
+# (http.server, urllib, re, os, html) so that it stays inside Vercel's
+# serverless limits and cold-starts as fast as possible.
 #
 # This file exists so that Vercel detects the project as a Python runtime.
-# Do not add packages unless they are strictly required at runtime.
+# Do not add packages here unless they are strictly required at runtime.
+#
+# The local Flask launcher (app.py) needs Flask, but Flask must NOT be
+# installed into the Vercel function. It is declared in requirements-dev.txt
+# instead, so run `pip install -r requirements-dev.txt` for local development.
+flask>=2.3,<4
